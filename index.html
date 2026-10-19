@@ -63,55 +63,71 @@ function reminders(){
 setInterval(reminders,30000);reminders();
 $('voiceConfirm').onclick=()=>{$('save').click()};
 $('voiceCancel').onclick=()=>{$('voiceReview').hidden=true;$('status').textContent='Edit any details, then press Save booking.'};
+function parseBookingSpeech(s){
+ const low=s.toLowerCase().replace(/\s+/g,' ').trim();
+ const out={};
+ const services=['car detailing','full car detail','car detail','car wash','lawn mowing','window cleaning','house cleaning','cleaning','gardening','haircut','car repair','repair','detailing'];
+ out.service=services.find(x=>low.includes(x))||'';
+ let name=s.match(/\b(?:book(?:ing)?|customer(?:\s+is)?|client(?:\s+is)?|with|for)\s+(?:a\s+booking\s+(?:with|for)\s+)?([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)\b/i);
+ const bad=/^(for|with|a|an|the|car|full|detail|detailing|cleaning|tomorrow|today|on|at|service|job|dollars|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i;
+ if(name&&!bad.test(name[1].split(' ')[0]))out.customer=name[1];
+ else{
+  name=s.match(/\b(?:with|for)\s+([A-Z][a-z]+)\b/);
+  if(name&&!bad.test(name[1]))out.customer=name[1];
+ }
+ if(out.customer){
+   out.customer=out.customer.replace(/\s+(?:for|with|on|at|tomorrow|today)$/i,'').trim();
+   if(out.customer.split(' ').some(x=>bad.test(x)))out.customer=out.customer.split(' ')[0];
+ }
+ const price=s.match(/(?:\$|(?:price|cost|charge|worth)\s+(?:is\s+|of\s+)?)(\d+(?:\.\d{1,2})?)/i)||s.match(/\b(\d+(?:\.\d{1,2})?)\s*dollars\b/i);
+ if(price)out.price=price[1];
+ const d=new Date(), months=['january','february','march','april','may','june','july','august','september','october','november','december'];
+ let hasDate=false;
+ const full=low.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\s*(\d{4})?\b/);
+ const reversed=low.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?\b/);
+ const numeric=low.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/);
+ if(full||reversed||numeric){
+  const day=Number(full?full[1]:reversed?reversed[2]:numeric[1]);
+  const month=full?months.indexOf(full[2]):reversed?months.indexOf(reversed[1]):Number(numeric[2])-1;
+  const year=Number((full?full[3]:reversed?reversed[3]:numeric[3])||d.getFullYear());
+  const test=new Date(year,month,day);
+  if(test.getFullYear()===year&&test.getMonth()===month&&test.getDate()===day){d.setFullYear(year,month,day);hasDate=true;}
+ }else if(/\bday after tomorrow\b/.test(low)){d.setDate(d.getDate()+2);hasDate=true}
+ else if(/\btomorrow\b/.test(low)){d.setDate(d.getDate()+1);hasDate=true}
+ else if(/\btoday\b/.test(low)){hasDate=true}
+ else{
+  const weekdays=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+  const wd=low.match(/\b(next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/);
+  if(wd){let delta=(weekdays.indexOf(wd[2])-d.getDay()+7)%7;if(delta===0||wd[1])delta=delta||7;d.setDate(d.getDate()+delta);hasDate=true}
+ }
+ const time=low.match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/)||low.match(/\bat\s+(\d{1,2}):(\d{2})\b/);
+ if(time&&hasDate){
+  let hour=Number(time[1]),minute=Number(time[2]||0),amp=(time[3]||'').replace(/\./g,'');
+  if(minute<=59&&hour>=0&&hour<=23&&(!amp||hour>=1&&hour<=12)){
+   if(amp==='pm'&&hour<12)hour+=12;if(amp==='am'&&hour===12)hour=0;
+   d.setHours(hour,minute,0,0);
+   const pad=n=>String(n).padStart(2,'0');
+   out.when=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+ }
+ return out;
+}
 $('speak').onclick=()=>{
  const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
- if(!Speech){$('status').textContent='Voice input is not supported here. Try Chrome on Android.';return}
+ if(!Speech){$('status').textContent='Speech recognition is not supported here. Try Chrome.';return}
  const r=new Speech();r.lang='en-NZ';r.interimResults=false;
- $('status').textContent='Listening... say: Book Mike for car detailing tomorrow at 3:30 PM for $150';
+ $('status').textContent='Listening... Try: Book Mike for car detailing on 30 October 2026 at 3:30 PM for $150.';
  r.onresult=e=>{
-  const s=e.results[0][0].transcript,low=s.toLowerCase();$('notes').value=s;
-  const customer=s.match(/\b(?:with|book|booking for)\s+([A-Za-z]+)\b/i);
-  const price=s.match(/\$\s*(\d+(?:\.\d+)?)/);
-  const service=s.match(/\b(car detailing|car wash|cleaning|lawn mowing|gardening|haircut|car repair)\b/i);
-  if(customer&&!/^(tomorrow|today|next)$/i.test(customer[1]))$('customer').value=customer[1];
-  if(price)$('price').value=price[1];
-  if(service)$('service').value=service[1];
-  const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
-  const dateWords=low.match(/\b(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\s*(\d{4})?\b/);
-  const numericDate=low.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/);
-  const time=low.match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
-  const d=new Date();
-  let dateFound=false;
-  if(dateWords){
-    const day=Number(dateWords[1]),month=months.indexOf(dateWords[2]),year=dateWords[3]?Number(dateWords[3]):d.getFullYear();
-    const candidate=new Date(year,month,day);
-    if(candidate.getFullYear()===year&&candidate.getMonth()===month&&candidate.getDate()===day){d.setFullYear(year,month,day);dateFound=true;}
-  }else if(numericDate){
-    const day=Number(numericDate[1]),month=Number(numericDate[2])-1,year=Number(numericDate[3]);
-    const candidate=new Date(year,month,day);
-    if(candidate.getFullYear()===year&&candidate.getMonth()===month&&candidate.getDate()===day){d.setFullYear(year,month,day);dateFound=true;}
-  }else if(low.includes('tomorrow')){d.setDate(d.getDate()+1);dateFound=true;}
-  else if(low.includes('today')){dateFound=true;}
-  if(time&&dateFound){
-    let hour=Number(time[1]),minute=Number(time[2]||0);
-    if(hour>=1&&hour<=12&&minute<=59){
-      if(time[3]==='pm'&&hour<12)hour+=12;
-      if(time[3]==='am'&&hour===12)hour=0;
-      d.setHours(hour,minute,0,0);
-      const pad=n=>String(n).padStart(2,'0');
-      $('when').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
-    }
-  }
+  const spoken=e.results[0][0].transcript, data=parseBookingSpeech(spoken);
+  for(const id of ['customer','service','when','price'])$(id).value=data[id]||'';
+  $('notes').value=spoken;
   $('voiceReview').hidden=false;
-  const missing=[];
-  if(!$('customer').value.trim())missing.push('customer');
-  if(!$('service').value.trim())missing.push('service');
-  if(!$('when').value)missing.push('date/time');
-  $('voiceDetails').textContent=($('customer').value||'Customer needed')+' — '+($('service').value||'Service needed')+' — '+($('when').value?new Date($('when').value).toLocaleString():'Date/time needed')+' — '+($('price').value?'$'+$('price').value:'Price not set');
-  $('status').textContent=missing.length?'Heard: '+s+'. Fill in '+missing.join(', ')+' before saving.':'Check the booking details, then press Save this booking.';
+  const missing=['customer','service','when'].filter(id=>!data[id]);
+  $('voiceDetails').textContent=(data.customer||'Customer missing')+' — '+(data.service||'Service missing')+' — '+(data.when?new Date(data.when).toLocaleString():'Date/time missing')+' — '+(data.price?'$'+data.price:'Price optional');
+  $('status').textContent=missing.length?'Heard: "'+spoken+'". Please correct '+missing.join(', ')+' before saving.':'Ready to save. Check the details and press Save this booking.';
  };
- r.onerror=e=>{$('status').textContent='Microphone error: '+e.error+'. You can type the booking instead.'};
- try{r.start()}catch{$('status').textContent='Could not start microphone.'}
+ r.onerror=e=>{$('status').textContent='Microphone error: '+e.error+'. You can still type your booking.'};
+ try{r.start()}catch{$('status').textContent='Could not start the microphone.'}
 };
 $('notify').onclick=async()=>{if(!('Notification'in window)){ $('status').textContent='Notifications are not supported in this browser';return;}if(!window.isSecureContext){$('status').textContent='Use HTTPS to enable notifications';return;}const answer=await Notification.requestPermission();$('status').textContent=answer==='granted'?'Reminders enabled while the page is open.':'Permission not granted.'};
 render();renderFinance();
