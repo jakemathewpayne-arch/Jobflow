@@ -35,9 +35,9 @@ button{background:#007dc3;color:white;border:1px solid #0071af;border-radius:6px
 </main><script>
 'use strict';
 const $=id=>document.getElementById(id),key='jobflow-ai-v1';
-const regions={NZ:{currency:'NZD',locale:'en-NZ',name:'New Zealand'},AU:{currency:'AUD',locale:'en-AU',name:'Australia'},GB:{currency:'GBP',locale:'en-GB',name:'United Kingdom'},US:{currency:'USD',locale:'en-US',name:'United States'}};
+const regions={NZ:{currency:'NZD',locale:'en-NZ',name:'New Zealand',timeZone:'Pacific/Auckland'},AU:{currency:'AUD',locale:'en-AU',name:'Australia',timeZone:'Australia/Sydney'},GB:{currency:'GBP',locale:'en-GB',name:'United Kingdom',timeZone:'Europe/London'},US:{currency:'USD',locale:'en-US',name:'United States',timeZone:'America/New_York'}};
 function defaultRegion(){const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'';if(zone.startsWith('Pacific/Auckland')||zone.startsWith('Pacific/Chatham'))return 'NZ';if(zone.startsWith('Australia/'))return 'AU';if(zone.startsWith('Europe/London'))return 'GB';if(zone.startsWith('America/'))return 'US';return 'NZ'}
-const storedRegion=localStorage.getItem('jobflow-region');let region=regions[storedRegion]?storedRegion:defaultRegion();
+const storedRegion=localStorage.getItem('jobflow-region');let region=regions[storedRegion]?storedRegion:'NZ';if(!localStorage.getItem('jobflow-region-v2-migrated')){region='NZ';localStorage.setItem('jobflow-region','NZ');localStorage.setItem('jobflow-region-v2-migrated','1')}
 const money=n=>new Intl.NumberFormat(regions[region].locale,{style:'currency',currency:regions[region].currency,currencyDisplay:'code'}).format(Number(n)||0);
 $('region').value=region;
 $('region').onchange=()=>{region=$('region').value;localStorage.setItem('jobflow-region',region);$('regionNotice').textContent='Saved: '+regions[region].name+' · '+regions[region].currency;clock();renderJobs();renderFinance()};
@@ -48,7 +48,7 @@ let learned={names:[],services:[],corrections:[]};try{const x=JSON.parse(localSt
 let latestVoice='',activeRec=null;
 const persist=()=>localStorage.setItem(key,JSON.stringify(jobs));
 const persistFinance=()=>{localStorage.setItem('jobflow-quotes',JSON.stringify(quotes));localStorage.setItem('jobflow-invoices',JSON.stringify(invoices))};
-function clock(){const now=new Date(),zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Device time';$('clock').textContent=now.toLocaleString(regions[region].locale,{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'})+' · '+zone}clock();setInterval(clock,60000);
+function clock(){const now=new Date(),settings=regions[region];$('clock').textContent=new Intl.DateTimeFormat(settings.locale,{timeZone:settings.timeZone,weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}).format(now)+' · '+settings.timeZone}clock();setInterval(clock,60000);
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b===btn));for(const tab of ['book','jobs','finance'])$('tab-'+tab).hidden=btn.dataset.tab!==tab});
 const switchTab=id=>document.querySelector('[data-tab="'+id+'"]').click();
 function smallButton(label,fn,cls='secondary'){const b=document.createElement('button');b.textContent=label;b.className=cls;b.onclick=fn;return b}
