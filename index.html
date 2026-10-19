@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>JobFlow AI</title>
 <style>
-:root{font-family:system-ui,Arial,sans-serif;color:#eaf3fa;background:#0b1220}*{box-sizing:border-box}body{margin:0}main{max-width:900px;margin:auto;padding:22px 16px}h1{margin:0}p,small{color:#aebed0}.panel,.stat{background:#172235;border:1px solid #304056;border-radius:14px;padding:18px}.panel{margin-top:18px}.stats,.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.fields{grid-template-columns:repeat(2,1fr)}.stat strong{font-size:24px;display:block;margin-top:8px}label{font-size:13px;color:#ced9e7;display:block;margin:10px 0 5px}input,textarea{width:100%;font:inherit;background:#0d1728;border:1px solid #465772;border-radius:8px;color:white;padding:10px}button{cursor:pointer;border:0;border-radius:9px;padding:10px 13px;font:inherit;font-weight:700;background:#58d3b0;color:#05231b}button.secondary{background:#34465f;color:white}button.danger{background:#7d3947;color:white}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.job{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #34465f}.job small{display:block;margin-top:5px}#status{min-height:22px;color:#80f0c5}@media(max-width:640px){.stats,.fields{grid-template-columns:1fr}.job{flex-direction:column}}
+:root{font-family:system-ui,Arial,sans-serif;color:#eaf3fa;background:#0b1220}*{box-sizing:border-box}body{margin:0}main{max-width:900px;margin:auto;padding:22px 16px}h1{margin:0}p,small{color:#aebed0}.panel,.stat{background:#172235;border:1px solid #304056;border-radius:14px;padding:18px}.panel{margin-top:18px}[hidden]{display:none!important}#voiceReview{background:#20354c;border-color:#58d3b0}.stats,.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.fields{grid-template-columns:repeat(2,1fr)}.stat strong{font-size:24px;display:block;margin-top:8px}label{font-size:13px;color:#ced9e7;display:block;margin:10px 0 5px}input,textarea{width:100%;font:inherit;background:#0d1728;border:1px solid #465772;border-radius:8px;color:white;padding:10px}button{cursor:pointer;border:0;border-radius:9px;padding:10px 13px;font:inherit;font-weight:700;background:#58d3b0;color:#05231b}button.secondary{background:#34465f;color:white}button.danger{background:#7d3947;color:white}.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.job{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #34465f}.job small{display:block;margin-top:5px}#status{min-height:22px;color:#80f0c5}@media(max-width:640px){.stats,.fields{grid-template-columns:1fr}.job{flex-direction:column}}
 </style></head><body><main>
 <h1>JobFlow AI</h1><p>Book jobs, track payments and get reminders.</p>
 <section class="stats"><div class="stat">Upcoming jobs<strong id="upcoming">0</strong></div><div class="stat">Unpaid total<strong id="unpaid">$0</strong></div><div class="stat">Paid total<strong id="paid">$0</strong></div></section>
@@ -11,7 +11,7 @@
 <div><label for="price">Price</label><input id="price" type="number" min="0" step="0.01" placeholder="150"></div>
 <div><label for="when">Date and time</label><input id="when" type="datetime-local"></div></div>
 <label for="notes">Notes / address</label><textarea id="notes" rows="2"></textarea>
-<div class="actions"><button id="save">Save booking</button><button id="speak" class="secondary">🎙 Speak booking</button><button id="notify" class="secondary">Enable notifications</button></div><p id="status" role="status"></p></section>
+<div class="actions"><button id="save">Save booking</button><button id="speak" class="secondary">🎙 Speak booking</button><button id="notify" class="secondary">Enable notifications</button></div><p id="status" role="status"></p><div id="voiceReview" class="panel" hidden><strong>Check your spoken booking</strong><p id="voiceDetails"></p><div class="actions"><button id="voiceConfirm">Save this booking</button><button id="voiceCancel" class="secondary">Edit details</button></div></div></section>
 <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Bookings</h2><button class="secondary" id="export">Export backup</button></div><div id="jobs"></div></section>
 <p><small>Prototype only: jobs are saved on this device. Browser reminders only run while this page is open. Calendar exports can provide background alerts through your calendar app. No cloud sync or push service yet.</small></p>
 </main><script>
@@ -33,7 +33,7 @@ function render(){
  const actions=document.createElement('div');actions.className='actions';
  const pay=document.createElement('button');pay.className='secondary';pay.textContent=j.paid?'Mark unpaid':'Mark paid';pay.onclick=()=>{j.paid=!j.paid;save();render()};
  const del=document.createElement('button');del.className='danger';del.textContent='Delete';del.onclick=()=>{if(confirm('Delete this booking?')){jobs=jobs.filter(x=>x.id!==j.id);save();render()}};
- const cal=document.createElement('button');cal.className='secondary';cal.textContent='Calendar reminder';cal.onclick=()=>{const d=new Date(j.when),end=new Date(d.getTime()+3600000),dt=x=>x.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';const lines=['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT','UID:'+j.id+'@jobflow','DTSTART:'+dt(d),'DTEND:'+dt(end),'SUMMARY:'+j.service+' with '+j.customer,'BEGIN:VALARM','TRIGGER:-PT30M','ACTION:DISPLAY','DESCRIPTION:Job reminder','END:VALARM','END:VEVENT','END:VCALENDAR'];const u=URL.createObjectURL(new Blob([lines.join('\r\n')],{type:'text/calendar'}));const a=document.createElement('a');a.href=u;a.download='jobflow.ics';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};actions.append(pay,cal,del);row.append(info,actions);root.append(row);
+ const cal=document.createElement('button');cal.className='secondary';cal.textContent='Calendar reminder';cal.onclick=()=>{const d=new Date(j.when),end=new Date(d.getTime()+3600000),dt=x=>x.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';const lines=['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT','UID:'+j.id+'@jobflow','DTSTART:'+dt(d),'DTEND:'+dt(end),'SUMMARY:'+j.service+' with '+j.customer,'BEGIN:VALARM','TRIGGER:-PT30M','ACTION:DISPLAY','DESCRIPTION:30 minute job reminder','END:VALARM','BEGIN:VALARM','TRIGGER:-PT15M','ACTION:DISPLAY','DESCRIPTION:15 minute job reminder','END:VALARM','END:VEVENT','END:VCALENDAR'];const u=URL.createObjectURL(new Blob([lines.join('\r\n')],{type:'text/calendar'}));const a=document.createElement('a');a.href=u;a.download='jobflow.ics';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};actions.append(pay,cal,del);row.append(info,actions);root.append(row);
  }
 }
 $('save').onclick=()=>{
@@ -41,12 +41,61 @@ $('save').onclick=()=>{
  if(!customer||!service||!when||!Number.isFinite(price)||price<0){$('status').textContent='Enter customer, service and date/time. Price is optional.';return}
  if(new Date(when).getTime()<Date.now()-60000){$('status').textContent='Choose a future appointment time.';return;}
  jobs.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),customer,service,when,price,notes:$('notes').value.trim(),paid:false,reminded:false});
- save();render();for(const id of ['customer','service','price','when','notes'])$(id).value='';$('status').textContent='Booking saved!';
+ $('voiceReview').hidden=true;save();render();for(const id of ['customer','service','price','when','notes'])$(id).value='';$('status').textContent='Booking saved!';
 };
 $('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(jobs,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='jobflow-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
-function reminders(){render();for(const j of jobs){const ms=new Date(j.when).getTime()-Date.now();if(!j.reminded&&ms>0&&ms<=1800000){j.reminded=true;save();const msg=j.service+' with '+j.customer+' at '+new Date(j.when).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});$('status').textContent='Reminder: '+msg;if('Notification'in window&&Notification.permission==='granted')new Notification('JobFlow reminder',{body:msg});else alert('JobFlow reminder: '+msg)}}}
+function reminders(){
+ const now=Date.now();
+ for(const j of jobs){
+  const ms=new Date(j.when).getTime()-now;
+  if(!Array.isArray(j.alertsSent)) j.alertsSent=[];
+  for(const mins of [30,15]){
+   if(ms>0&&ms<=mins*60000&&!j.alertsSent.includes(mins)){
+    j.alertsSent.push(mins);save();
+    const msg=j.service+' with '+j.customer+' at '+new Date(j.when).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});
+    $('status').textContent=mins+' minute reminder: '+msg;
+    if('Notification' in window&&Notification.permission==='granted')new Notification('JobFlow: '+mins+' minutes until your job',{body:msg});
+    else alert('JobFlow: '+mins+' minutes until your job. '+msg);
+   }
+  }
+ }
+}
 setInterval(reminders,30000);reminders();
-$('speak').onclick=()=>{const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Speech){$('status').textContent='Speech input needs a supported browser, such as Chrome on Android.';return;}const r=new Speech();r.lang='en-NZ';$('status').textContent='Listening...';r.onresult=e=>{const s=e.results[0][0].transcript,low=s.toLowerCase();$('notes').value=s;const customer=s.match(/\b(?:with|book|booking for)\s+([A-Za-z]+)\b/),price=s.match(/\$\s*(\d+(?:\.\d+)?)/),service=s.match(/\b(car detailing|car wash|cleaning|lawn mowing|gardening|haircut|car repair)\b/i);if(customer&&!/^(tomorrow|today|next)$/.test(customer[1].toLowerCase()))$('customer').value=customer[1];if(price)$('price').value=price[1];if(service)$('service').value=service[1];const t=low.match(/\b(?:at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);if(t){const d=new Date();if(low.includes('tomorrow'))d.setDate(d.getDate()+1);let hour=Number(t[1]);if(t[3]==='pm'&&hour<12)hour+=12;if(t[3]==='am'&&hour===12)hour=0;d.setHours(hour,Number(t[2]||0),0,0);const pad=n=>String(n).padStart(2,'0');$('when').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());}$('status').textContent='Heard: '+s+'. Check all fields, then press Save booking.'};r.onerror=()=>{$('status').textContent='Microphone was unavailable. Please type your booking.'};r.start()};
+$('voiceConfirm').onclick=()=>{$('save').click()};
+$('voiceCancel').onclick=()=>{$('voiceReview').hidden=true;$('status').textContent='Edit any details, then press Save booking.'};
+$('speak').onclick=()=>{
+ const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Speech){$('status').textContent='Voice input is not supported here. Try Chrome on Android.';return}
+ const r=new Speech();r.lang='en-NZ';r.interimResults=false;
+ $('status').textContent='Listening... say: Book Mike for car detailing tomorrow at 3:30 PM for $150';
+ r.onresult=e=>{
+  const s=e.results[0][0].transcript,low=s.toLowerCase();$('notes').value=s;
+  const customer=s.match(/\b(?:with|book|booking for)\s+([A-Za-z]+)\b/i);
+  const price=s.match(/\$\s*(\d+(?:\.\d+)?)/);
+  const service=s.match(/\b(car detailing|car wash|cleaning|lawn mowing|gardening|haircut|car repair)\b/i);
+  if(customer&&!/^(tomorrow|today|next)$/i.test(customer[1]))$('customer').value=customer[1];
+  if(price)$('price').value=price[1];
+  if(service)$('service').value=service[1];
+  const time=low.match(/\b(?:at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+  if(time){
+   const d=new Date();if(low.includes('tomorrow'))d.setDate(d.getDate()+1);
+   let hour=Number(time[1]);if(time[3]==='pm'&&hour<12)hour+=12;
+   if(time[3]==='am'&&hour===12)hour=0;
+   d.setHours(hour,Number(time[2]||0),0,0);
+   const pad=n=>String(n).padStart(2,'0');
+   $('when').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+  $('voiceReview').hidden=false;
+  const missing=[];
+  if(!$('customer').value.trim())missing.push('customer');
+  if(!$('service').value.trim())missing.push('service');
+  if(!$('when').value)missing.push('date/time');
+  $('voiceDetails').textContent=($('customer').value||'Customer needed')+' — '+($('service').value||'Service needed')+' — '+($('when').value?new Date($('when').value).toLocaleString():'Date/time needed')+' — '+($('price').value?'$'+$('price').value:'Price not set');
+  $('status').textContent=missing.length?'Heard: '+s+'. Fill in '+missing.join(', ')+' before saving.':'Check the booking details, then press Save this booking.';
+ };
+ r.onerror=e=>{$('status').textContent='Microphone error: '+e.error+'. You can type the booking instead.'};
+ try{r.start()}catch{$('status').textContent='Could not start microphone.'}
+};
 $('notify').onclick=async()=>{if(!('Notification'in window)){ $('status').textContent='Notifications are not supported in this browser';return;}if(!window.isSecureContext){$('status').textContent='Use HTTPS to enable notifications';return;}const answer=await Notification.requestPermission();$('status').textContent=answer==='granted'?'Reminders enabled while the page is open.':'Permission not granted.'};
 render();
 </script></body></html>
