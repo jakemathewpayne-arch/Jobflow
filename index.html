@@ -76,14 +76,31 @@ $('speak').onclick=()=>{
   if(customer&&!/^(tomorrow|today|next)$/i.test(customer[1]))$('customer').value=customer[1];
   if(price)$('price').value=price[1];
   if(service)$('service').value=service[1];
-  const time=low.match(/\b(?:at)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
-  if(time){
-   const d=new Date();if(low.includes('tomorrow'))d.setDate(d.getDate()+1);
-   let hour=Number(time[1]);if(time[3]==='pm'&&hour<12)hour+=12;
-   if(time[3]==='am'&&hour===12)hour=0;
-   d.setHours(hour,Number(time[2]||0),0,0);
-   const pad=n=>String(n).padStart(2,'0');
-   $('when').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
+  const dateWords=low.match(/\b(?:on\s+)?(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\s*(\d{4})?\b/);
+  const numericDate=low.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/);
+  const time=low.match(/\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+  const d=new Date();
+  let dateFound=false;
+  if(dateWords){
+    const day=Number(dateWords[1]),month=months.indexOf(dateWords[2]),year=dateWords[3]?Number(dateWords[3]):d.getFullYear();
+    const candidate=new Date(year,month,day);
+    if(candidate.getFullYear()===year&&candidate.getMonth()===month&&candidate.getDate()===day){d.setFullYear(year,month,day);dateFound=true;}
+  }else if(numericDate){
+    const day=Number(numericDate[1]),month=Number(numericDate[2])-1,year=Number(numericDate[3]);
+    const candidate=new Date(year,month,day);
+    if(candidate.getFullYear()===year&&candidate.getMonth()===month&&candidate.getDate()===day){d.setFullYear(year,month,day);dateFound=true;}
+  }else if(low.includes('tomorrow')){d.setDate(d.getDate()+1);dateFound=true;}
+  else if(low.includes('today')){dateFound=true;}
+  if(time&&dateFound){
+    let hour=Number(time[1]),minute=Number(time[2]||0);
+    if(hour>=1&&hour<=12&&minute<=59){
+      if(time[3]==='pm'&&hour<12)hour+=12;
+      if(time[3]==='am'&&hour===12)hour=0;
+      d.setHours(hour,minute,0,0);
+      const pad=n=>String(n).padStart(2,'0');
+      $('when').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+    }
   }
   $('voiceReview').hidden=false;
   const missing=[];
