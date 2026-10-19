@@ -11,9 +11,9 @@
 <div><label for="price">Price</label><input id="price" type="number" min="0" step="0.01" placeholder="150"></div>
 <div><label for="when">Date and time</label><input id="when" type="datetime-local"></div></div>
 <label for="notes">Notes / address</label><textarea id="notes" rows="2"></textarea>
-<div class="actions"><button id="save">Save booking</button><button id="speak" class="secondary">🎙 Speak booking</button></div><p id="status" role="status"></p></section>
+<div class="actions"><button id="save">Save booking</button><button id="speak" class="secondary">🎙 Speak booking</button><button id="notify" class="secondary">Enable notifications</button></div><p id="status" role="status"></p></section>
 <section class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>Bookings</h2><button class="secondary" id="export">Export backup</button></div><div id="jobs"></div></section>
-<p><small>Prototype only: jobs are saved on this device. Reminders only work while the page is open. No cloud sync, Google Calendar connection or background push yet.</small></p>
+<p><small>Prototype only: jobs are saved on this device. Browser reminders only run while this page is open. Calendar exports can provide background alerts through your calendar app. No cloud sync or push service yet.</small></p>
 </main><script>
 'use strict';
 const $=id=>document.getElementById(id), key='jobflow-ai-v1';
@@ -33,7 +33,7 @@ function render(){
  const actions=document.createElement('div');actions.className='actions';
  const pay=document.createElement('button');pay.className='secondary';pay.textContent=j.paid?'Mark unpaid':'Mark paid';pay.onclick=()=>{j.paid=!j.paid;save();render()};
  const del=document.createElement('button');del.className='danger';del.textContent='Delete';del.onclick=()=>{if(confirm('Delete this booking?')){jobs=jobs.filter(x=>x.id!==j.id);save();render()}};
- actions.append(pay,del);row.append(info,actions);root.append(row);
+ const cal=document.createElement('button');cal.className='secondary';cal.textContent='Calendar reminder';cal.onclick=()=>{const d=new Date(j.when),end=new Date(d.getTime()+3600000),dt=x=>x.toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';const lines=['BEGIN:VCALENDAR','VERSION:2.0','BEGIN:VEVENT','UID:'+j.id+'@jobflow','DTSTART:'+dt(d),'DTEND:'+dt(end),'SUMMARY:'+j.service+' with '+j.customer,'BEGIN:VALARM','TRIGGER:-PT30M','ACTION:DISPLAY','DESCRIPTION:Job reminder','END:VALARM','END:VEVENT','END:VCALENDAR'];const u=URL.createObjectURL(new Blob([lines.join('\r\n')],{type:'text/calendar'}));const a=document.createElement('a');a.href=u;a.download='jobflow.ics';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};actions.append(pay,cal,del);row.append(info,actions);root.append(row);
  }
 }
 $('save').onclick=()=>{
@@ -46,5 +46,6 @@ $('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(jo
 function reminders(){for(const j of jobs){const ms=new Date(j.when).getTime()-Date.now();if(!j.reminded&&ms>0&&ms<=1800000){j.reminded=true;save();const msg=j.service+' with '+j.customer+' at '+new Date(j.when).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'});$('status').textContent='Reminder: '+msg;if('Notification'in window&&Notification.permission==='granted')new Notification('JobFlow reminder',{body:msg});else alert('JobFlow reminder: '+msg)}}}
 setInterval(reminders,30000);reminders();
 $('speak').onclick=()=>{const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;if(!Speech){$('status').textContent='Voice input not supported in this browser.';return}const r=new Speech();r.lang='en-NZ';r.onresult=e=>{const s=e.results[0][0].transcript;$('notes').value=s;const name=s.match(/(?:with|for)\s+([A-Za-z]+)\b/i),price=s.match(/\$\s*(\d+(?:\.\d+)?)/);if(name)$('customer').value=name[1];if(price)$('price').value=price[1];$('status').textContent='Speech copied to notes. Check the details before saving.'};r.onerror=()=>{$('status').textContent='Microphone failed or permission denied.'};r.start()};
+$('notify').onclick=async()=>{if(!('Notification'in window)){ $('status').textContent='Notifications are not supported in this browser';return;}if(!window.isSecureContext){$('status').textContent='Use HTTPS to enable notifications';return;}const answer=await Notification.requestPermission();$('status').textContent=answer==='granted'?'Reminders enabled while the page is open.':'Permission not granted.'};
 render();
 </script></body></html>
