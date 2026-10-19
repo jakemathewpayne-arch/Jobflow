@@ -41,7 +41,7 @@ $('save').onclick=()=>{
  if(!customer||!service||!when||!Number.isFinite(price)||price<0){$('status').textContent='Enter customer, service and date/time. Price is optional.';return}
  if(new Date(when).getTime()<Date.now()-60000){$('status').textContent='Choose a future appointment time.';return;}
  jobs.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),customer,service,when,price,notes:$('notes').value.trim(),paid:false,reminded:false});
- $('voiceReview').hidden=true;save();render();for(const id of ['customer','service','price','when','notes'])$(id).value='';$('status').textContent='Booking saved!';
+ rememberBooking();$('voiceReview').hidden=true;save();render();for(const id of ['customer','service','price','when','notes'])$(id).value='';$('status').textContent='Booking saved!';
 };
 $('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(jobs,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='jobflow-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)};
 function reminders(){
@@ -63,18 +63,40 @@ function reminders(){
 setInterval(reminders,30000);reminders();
 $('voiceConfirm').onclick=()=>{$('save').click()};
 $('voiceCancel').onclick=()=>{$('voiceReview').hidden=true;$('status').textContent='Edit any details, then press Save booking.'};
+const smartKey='jobflow-learning-v1';
+let learned={names:[],services:[],corrections:[]};
+try{const v=JSON.parse(localStorage.getItem(smartKey)||'{}');if(v&&typeof v==='object')learned={names:Array.isArray(v.names)?v.names:[],services:Array.isArray(v.services)?v.services:[],corrections:Array.isArray(v.corrections)?v.corrections:[]}}catch{}
+let latestVoice='';
+function rememberBooking(){
+ if(!latestVoice)return;
+ const customer=$('customer').value.trim(),service=$('service').value.trim();
+ if(customer&&!learned.names.some(x=>x.toLowerCase()===customer.toLowerCase()))learned.names.push(customer);
+ if(service&&!learned.services.some(x=>x.toLowerCase()===service.toLowerCase()))learned.services.push(service);
+ const entry={spoken:latestVoice.toLowerCase().trim(),customer,service};
+ learned.corrections=learned.corrections.filter(x=>x.spoken!==entry.spoken).concat(entry).slice(-100);
+ learned.names=learned.names.slice(-100);learned.services=learned.services.slice(-100);
+ try{localStorage.setItem(smartKey,JSON.stringify(learned))}catch{}
+ latestVoice='';
+}
+function interpretKnownCustomer(s){
+ const phrase=s.toLowerCase();
+ return [...learned.names].sort((a,b)=>b.length-a.length).find(name=>phrase.includes(name.toLowerCase()))||'';
+}
 function parseBookingSpeech(s){
  const low=s.toLowerCase().replace(/\s+/g,' ').trim();
  const out={};
  const services=['car detailing','full car detail','car detail','car wash','lawn mowing','window cleaning','house cleaning','cleaning','gardening','haircut','car repair','repair','detailing'];
- out.service=services.find(x=>low.includes(x))||'';
- let name=s.match(/\b(?:book(?:ing)?|customer(?:\s+is)?|client(?:\s+is)?|with|for)\s+(?:a\s+booking\s+(?:with|for)\s+)?([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)\b/i);
+ out.service=[...learned.services,...services].sort((a,b)=>b.length-a.length).find(x=>low.includes(x.toLowerCase()))||'';
+ let name=s.match(/\b(?:book(?:ing)?(?:\s+(?:an?\s+)?(?:appointment|job|booking))?\s+(?:for|with)?|customer(?:\s+(?:name\s+)?is)?|client(?:\s+(?:name\s+)?is)?|with)\s+([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)\b/i);
  const bad=/^(for|with|a|an|the|car|full|detail|detailing|cleaning|tomorrow|today|on|at|service|job|dollars|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i;
  if(name&&!bad.test(name[1].split(' ')[0]))out.customer=name[1];
  else{
   name=s.match(/\b(?:with|for)\s+([A-Z][a-z]+)\b/);
   if(name&&!bad.test(name[1]))out.customer=name[1];
  }
+ out.customer=interpretKnownCustomer(s)||out.customer;
+ const prior=learned.corrections.find(x=>x.spoken===low);
+ if(prior){out.customer=prior.customer||out.customer;out.service=prior.service||out.service;}
  if(out.customer){
    out.customer=out.customer.replace(/\s+(?:for|with|on|at|tomorrow|today)$/i,'').trim();
    if(out.customer.split(' ').some(x=>bad.test(x)))out.customer=out.customer.split(' ')[0];
@@ -118,7 +140,7 @@ $('speak').onclick=()=>{
  const r=new Speech();r.lang='en-NZ';r.interimResults=false;
  $('status').textContent='Listening... Try: Book Mike for car detailing on 30 October 2026 at 3:30 PM for $150.';
  r.onresult=e=>{
-  const spoken=e.results[0][0].transcript, data=parseBookingSpeech(spoken);
+  const spoken=e.results[0][0].transcript, data=parseBookingSpeech(spoken);latestVoice=spoken;
   for(const id of ['customer','service','when','price'])$(id).value=data[id]||'';
   $('notes').value=spoken;
   $('voiceReview').hidden=false;
