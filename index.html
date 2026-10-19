@@ -21,7 +21,7 @@ button{background:#007dc3;color:white;border:1px solid #0071af;border-radius:6px
 </style></head><body><main>
 <header><div class="logo"><span class="mark">JF</span><div><h1>JobFlow AI</h1><small>Jobs, quotes & payments. Made simple.</small></div></div><div class="clock" id="clock"></div></header>
 <div class="hero"><div class="eyebrow">YOUR BUSINESS WORKSPACE</div><h2>Your business overview</h2><p>Manage your bookings, quotes and invoices in one place.</p></div><div class="stats"><div class="stat">Upcoming jobs<strong id="upcoming">0</strong></div><div class="stat">Unpaid jobs<strong id="unpaid">$0</strong></div><div class="stat">Paid jobs<strong id="paid">$0</strong></div></div>
-<nav class="tabs" aria-label="Sections"><button data-tab="book" class="active">Book a job</button><button data-tab="jobs">My jobs</button><button data-tab="finance">Quotes & invoices</button></nav>
+<div class="region-settings" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:15px"><label for="region" style="margin:0">Your country</label><select id="region" style="width:auto;min-width:185px;padding:9px 12px;border:1px solid #c8d6df;border-radius:7px;background:white;color:#234"><option value="NZ">New Zealand (NZD)</option><option value="AU">Australia (AUD)</option><option value="GB">United Kingdom (GBP)</option><option value="US">United States (USD)</option></select><small id="regionNotice">Your preferences are saved on this device.</small></div><nav class="tabs" aria-label="Sections"><button data-tab="book" class="active">Book a job</button><button data-tab="jobs">My jobs</button><button data-tab="finance">Quotes & invoices</button></nav>
 <section id="tab-book" class="panel"><span class="section-kicker">QUICK ACTION</span><h2>Book a job</h2><p class="hint">Speak naturally or enter the details below.</p>
 <button id="speak">🎙 Start speaking</button>
 <div class="voicebar" id="voicebar" data-mode="ready" role="status" aria-live="polite"><div class="orb" aria-hidden="true">🎙</div><div><strong id="voiceState">Ready to listen</strong><small id="voiceHint">Tap Start speaking, then say your booking.</small></div></div>
@@ -34,14 +34,21 @@ button{background:#007dc3;color:white;border:1px solid #0071af;border-radius:6px
 <p class="muted">Prototype: information is stored only in this browser. Reminders work while the page is open; use “Calendar reminder” for calendar-app alerts. Quote approval and payment tracking are manual, not connected to a payment provider.</p>
 </main><script>
 'use strict';
-const $=id=>document.getElementById(id), money=n=>'$'+Number(n||0).toFixed(2), key='jobflow-ai-v1';
+const $=id=>document.getElementById(id),key='jobflow-ai-v1';
+const regions={NZ:{currency:'NZD',locale:'en-NZ',name:'New Zealand'},AU:{currency:'AUD',locale:'en-AU',name:'Australia'},GB:{currency:'GBP',locale:'en-GB',name:'United Kingdom'},US:{currency:'USD',locale:'en-US',name:'United States'}};
+function defaultRegion(){const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'';if(zone.startsWith('Pacific/Auckland')||zone.startsWith('Pacific/Chatham'))return 'NZ';if(zone.startsWith('Australia/'))return 'AU';if(zone.startsWith('Europe/London'))return 'GB';if(zone.startsWith('America/'))return 'US';return 'NZ'}
+const storedRegion=localStorage.getItem('jobflow-region');let region=regions[storedRegion]?storedRegion:defaultRegion();
+const money=n=>new Intl.NumberFormat(regions[region].locale,{style:'currency',currency:regions[region].currency,currencyDisplay:'code'}).format(Number(n)||0);
+$('region').value=region;
+$('region').onchange=()=>{region=$('region').value;localStorage.setItem('jobflow-region',region);$('regionNotice').textContent='Saved: '+regions[region].name+' · '+regions[region].currency;clock();renderJobs();renderFinance()};
+
 function load(k){try{let x=JSON.parse(localStorage.getItem(k)||'[]');return Array.isArray(x)?x:[]}catch{return []}}
 let jobs=load(key),quotes=load('jobflow-quotes'),invoices=load('jobflow-invoices');
 let learned={names:[],services:[],corrections:[]};try{const x=JSON.parse(localStorage.getItem('jobflow-learning-v1')||'{}');if(x&&typeof x==='object')learned={names:x.names||[],services:x.services||[],corrections:x.corrections||[]}}catch{}
 let latestVoice='',activeRec=null;
 const persist=()=>localStorage.setItem(key,JSON.stringify(jobs));
 const persistFinance=()=>{localStorage.setItem('jobflow-quotes',JSON.stringify(quotes));localStorage.setItem('jobflow-invoices',JSON.stringify(invoices))};
-function clock(){const now=new Date(),zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Device time';$('clock').textContent=now.toLocaleString(undefined,{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' · '+zone}clock();setInterval(clock,60000);
+function clock(){const now=new Date(),zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'Device time';$('clock').textContent=now.toLocaleString(regions[region].locale,{weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'})+' · '+zone}clock();setInterval(clock,60000);
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b===btn));for(const tab of ['book','jobs','finance'])$('tab-'+tab).hidden=btn.dataset.tab!==tab});
 const switchTab=id=>document.querySelector('[data-tab="'+id+'"]').click();
 function smallButton(label,fn,cls='secondary'){const b=document.createElement('button');b.textContent=label;b.className=cls;b.onclick=fn;return b}
@@ -51,7 +58,7 @@ function renderJobs(){
  $('unpaid').textContent=money(jobs.filter(j=>!j.paid).reduce((s,j)=>s+Number(j.price||0),0));
  $('jobs').replaceChildren();if(!jobs.length)$('jobs').textContent='No bookings yet.';
  for(const j of [...jobs].sort((a,b)=>new Date(a.when)-new Date(b.when))){
- const row=document.createElement('div');row.className='job';const info=document.createElement('div');const name=document.createElement('strong');name.textContent=j.customer+' — '+j.service;const detail=document.createElement('small');detail.textContent=new Date(j.when).toLocaleString()+' · '+money(j.price)+' · '+(j.paid?'Paid':'Unpaid');info.append(name,detail);if(j.notes){let n=document.createElement('small');n.textContent=j.notes;info.append(n)}
+ const row=document.createElement('div');row.className='job';const info=document.createElement('div');const name=document.createElement('strong');name.textContent=j.customer+' — '+j.service;const detail=document.createElement('small');detail.textContent=new Date(j.when).toLocaleString(regions[region].locale)+' · '+money(j.price)+' · '+(j.paid?'Paid':'Unpaid');info.append(name,detail);if(j.notes){let n=document.createElement('small');n.textContent=j.notes;info.append(n)}
  const acts=document.createElement('div');acts.className='actions';acts.append(smallButton(j.paid?'Mark unpaid':'Mark paid',()=>{j.paid=!j.paid;persist();renderJobs()}),smallButton('Calendar reminder',()=>downloadCalendar(j)),smallButton('Delete',()=>{if(confirm('Delete this booking?')){jobs=jobs.filter(x=>x.id!==j.id);persist();renderJobs()}},'danger'));row.append(info,acts);$('jobs').append(row)}
 }
 function download(name,data,type){const u=URL.createObjectURL(new Blob([data],{type}));const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1500)}
@@ -89,7 +96,7 @@ function listen(mode){
  setVoice('listening','Listening now…','Speak clearly. Tap Stop listening when finished.');
  rec.onresult=e=>{const s=Array.from(e.results).map(v=>v[0].transcript).join(' ');$('heard').textContent='Heard: '+s;if(!e.results[e.results.length-1].isFinal)return;
  if(mode==='quote'){const d=parseSpoken(s),customer=d.customer||'',service=d.service||'',price=d.price||'';$('quoteName').value=customer;$('quoteWork').value=service;$('quoteAmount').value=price;$('quoteStatus').textContent='Review quote details, then press Create quote.';}
- else{latestVoice=s;const d=parseSpoken(s);for(const id of ['customer','service','when','price'])$(id).value=d[id]||'';$('notes').value=s;$('voiceReview').hidden=false;const missing=['customer','service','when'].filter(id=>!d[id]);$('voiceDetails').textContent=(d.customer||'Customer missing')+' · '+(d.service||'Service missing')+' · '+(d.when?new Date(d.when).toLocaleString():'Date/time missing')+' · '+(d.price?money(d.price):'No price');$('status').textContent=missing.length?'Check the missing details: '+missing.join(', '):'Review and press Save booking.'}
+ else{latestVoice=s;const d=parseSpoken(s);for(const id of ['customer','service','when','price'])$(id).value=d[id]||'';$('notes').value=s;$('voiceReview').hidden=false;const missing=['customer','service','when'].filter(id=>!d[id]);$('voiceDetails').textContent=(d.customer||'Customer missing')+' · '+(d.service||'Service missing')+' · '+(d.when?new Date(d.when).toLocaleString(regions[region].locale):'Date/time missing')+' · '+(d.price?money(d.price):'No price');$('status').textContent=missing.length?'Check the missing details: '+missing.join(', '):'Review and press Save booking.'}
  setVoice('ready','Speech captured','Review the fields before saving.');};
  rec.onerror=e=>{setVoice('error','Microphone issue',e.error==='not-allowed'?'Allow microphone access in your browser.':'Please try again: '+e.error)};
  rec.onend=()=>{activeRec=null;if($('voicebar').dataset.mode==='listening')setVoice('ready','Finished listening','Review the fields or try again.')};
