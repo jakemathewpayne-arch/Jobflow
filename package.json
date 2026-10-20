@@ -1,0 +1,17 @@
+{
+  "name": "jobflow-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "web-push": "^3.6.7",
+    "express-rate-limit": "^7.5.0"
+  }
+}
