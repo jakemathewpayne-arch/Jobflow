@@ -145,11 +145,17 @@ function parseSpoken(s){
  out.service=[...profile.services,...learned.services,...services].sort((a,b)=>b.length-a.length).find(v=>lower.includes(v.toLowerCase()))||'';if(!out.service&&profile.services.length===1)out.service=profile.services[0];
  const addressMatch=s.match(/\b(?:at the address|address is|located at|at)\s+(\d{1,5}\s+[a-z0-9\s.'-]+?(?:street|st|road|rd|avenue|ave|drive|dr|lane|ln|court|ct|place|pl|crescent|cr)(?:\s*,?\s*[a-z][a-z\s'-]*)?)(?=\s*(?:for\s+\$|costing|priced|tomorrow|today|on\s+\d|at\s+\d|$))/i);
  if(addressMatch)out.address=addressMatch[1].trim().replace(/[,. ]+$/,'');
- const customer=s.match(/\b(?:book(?:\s+(?:a\s+)?job)?(?:\s+for)?|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:quote|invoice)\s+for|(?:quote|invoice)\s+for|(?:job|appointment|booking|thing)\s+for|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:booking|job|thing)\s+for|with|customer is|client is)\s+([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i);
+ const customer=s.match(/\b(?:book(?:\s+(?:a\s+)?job)?(?:\s+for)?|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:quote|invoice)\s+for|(?:quote|invoice)\s+for|(?:job|appointment|booking|thing)\s+for|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:booking|job|thing)\s+for|with|customer is|client is|customer(?:'s)? name is|client(?:'s)? name is|name is)\s+([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i);
  const bad=/^(for|with|a|an|the|car|detailing|cleaning|tomorrow|today|on|at|service|job|next|my|me|thing)$/i;
- if(customer&&!bad.test(customer[1].split(' ')[0]))out.customer=customer[1].replace(/\s+(for|with|on|at)$/i,'');
- if(!out.customer&&voiceDraftActive&&/^\s*[a-z][a-z'-]{1,30}\s*$/i.test(s))out.customer=s.trim();
- if(!out.customer){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))out.customer=alternative[1];}
+ if(customer&&!bad.test(customer[1].split(' ')[0])){
+  let name=customer[1].replace(/\s+(for|with|on|at)$/i,'').trim();
+  // Browser speech recognition often hears the first name Mick as "mic".
+  // Only correct this in the customer-name field, never in a service or note.
+  if(/^mic$/i.test(name))name='Mick';
+  out.customer=name;
+ }
+ if(!out.customer&&voiceDraftActive&&/^\s*[a-z][a-z'-]{1,30}\s*$/i.test(s))out.customer=/^mic$/i.test(s.trim())?'Mick':s.trim();
+ if(!out.customer){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))out.customer=/^mic$/i.test(alternative[1])?'Mick':alternative[1];}
  const known=[...learned.names].sort((a,b)=>b.length-a.length).find(n=>lower.includes(n.toLowerCase()));if(known)out.customer=known;
  const saved=learned.corrections.find(x=>x.spoken===lower.trim());if(saved){out.customer=saved.customer;out.service=saved.service}
  const price=s.match(/\$\s*(\d+(?:\.\d+)?)/)||s.match(/\b(\d+(?:\.\d+)?)\s*dollars\b/i)||s.match(/\b(?:priced at|costs?|charge|amount of)\s+(\d+(?:\.\d+)?)\b/i);if(price)out.price=price[1];
