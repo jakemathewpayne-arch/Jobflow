@@ -78,9 +78,10 @@ function setVoice(mode,title,hint){$('voicebar').dataset.mode=mode;$('voiceState
 function parseSpoken(s){
  const lower=s.toLowerCase(),out={},services=['car detailing','full car detail','car detail','car wash','lawn mowing','house cleaning','window cleaning','cleaning','gardening','haircut','repair'];
  out.service=[...profile.services,...learned.services,...services].sort((a,b)=>b.length-a.length).find(v=>lower.includes(v.toLowerCase()))||'';if(!out.service&&profile.services.length===1)out.service=profile.services[0];
- const customer=s.match(/\b(?:book(?:\s+(?:a\s+)?job)?(?:\s+for)?|(?:job|appointment)\s+for|with|customer is|client is)\s+([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i);
- const bad=/^(for|with|a|an|the|car|detailing|cleaning|tomorrow|today|on|at|service|job|next)$/i;
+ const customer=s.match(/\b(?:book(?:\s+(?:a\s+)?job)?(?:\s+for)?|(?:job|appointment|booking|thing)\s+for|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:booking|job|thing)\s+for|with|customer is|client is)\s+([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i);
+ const bad=/^(for|with|a|an|the|car|detailing|cleaning|tomorrow|today|on|at|service|job|next|my|me|thing)$/i;
  if(customer&&!bad.test(customer[1].split(' ')[0]))out.customer=customer[1].replace(/\s+(for|with|on|at)$/i,'');
+ if(!out.customer){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))out.customer=alternative[1];}
  const known=[...learned.names].sort((a,b)=>b.length-a.length).find(n=>lower.includes(n.toLowerCase()));if(known)out.customer=known;
  const saved=learned.corrections.find(x=>x.spoken===lower.trim());if(saved){out.customer=saved.customer;out.service=saved.service}
  const price=s.match(/\$\s*(\d+(?:\.\d+)?)/)||s.match(/\b(\d+(?:\.\d+)?)\s*dollars\b/i);if(price)out.price=price[1];
