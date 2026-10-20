@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta name="theme-color" content="#087dc1"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="JobFlow"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="/icon.svg"><title>JobFlow AI</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta name="theme-color" content="#087dc1"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="JobFlow"><link rel="manifest" href="/Jobflow/manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="/Jobflow/icon.svg"><title>JobFlow AI</title>
 <style>
 :root{font:15px system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:#253747;background:#f2f4f6}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f2f4f6}main{max-width:1230px;margin:0 auto;padding:26px 25px 65px}
 h1{font-size:24px;letter-spacing:-.6px;margin:0;color:#fff}h2{font-size:21px;letter-spacing:-.45px;margin:0 0 12px;color:#203446}p,small{color:#607588;line-height:1.6}
@@ -180,7 +180,7 @@ async function enablePushReminders(){
   if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){throw Error('This browser does not support web push. Use calendar reminders instead.')}
   const ios=/iPad|iPhone|iPod/.test(navigator.userAgent),installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;if(ios&&!installed)throw Error('On iPhone: open JobFlow in Safari, tap Share → Add to Home Screen, launch the installed app, then enable reminders.');const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Allow notifications in your browser settings.');
   const {key}=await api('/api/push-key');if(!key)throw Error('Push notifications are not configured yet.');
-  await navigator.serviceWorker.register('/sw.js');const ready=await navigator.serviceWorker.ready;
+  await navigator.serviceWorker.register('/Jobflow/sw.js');const ready=await navigator.serviceWorker.ready;
   let sub=await ready.pushManager.getSubscription();if(!sub)sub=await ready.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(key)});
   await api('/api/subscribe','POST',sub.toJSON());localStorage.setItem('jobflow-push-enabled','yes');
   $('notify').textContent='✓ Push reminders enabled';$('accountNotify').textContent='✓ Background reminders on';$('status').textContent='✓ Push reminders enabled for this device.';$('accountStatus').textContent='✓ Notifications enabled. Press Send test notification to check delivery.';
@@ -204,10 +204,11 @@ async function initializeDevice(){
  try{
   const guest=await api('/api/guest','POST',{});
   if(guest.existing){const data=await api('/api/data');if(Array.isArray(data.jobs)&&data.jobs.length){jobs=data.jobs;quotes=data.quotes||[];invoices=data.invoices||[];localStorage.setItem(key,JSON.stringify(jobs));localStorage.setItem('jobflow-quotes',JSON.stringify(quotes));localStorage.setItem('jobflow-invoices',JSON.stringify(invoices))}}
-  authenticated=true;renderJobs();renderFinance();if('serviceWorker' in navigator&&Notification.permission==='granted'&&localStorage.getItem('jobflow-push-enabled')==='yes'){try{const reg=await navigator.serviceWorker.register('/sw.js');const sub=await reg.pushManager.getSubscription();if(sub){await api('/api/subscribe','POST',sub.toJSON());$('notify').textContent='✓ Background reminders on'}}catch(e){console.warn('Push refresh',e)}}await api('/api/data','PUT',{jobs,quotes,invoices});
+  authenticated=true;renderJobs();renderFinance();if('serviceWorker' in navigator&&Notification.permission==='granted'&&localStorage.getItem('jobflow-push-enabled')==='yes'){try{const reg=await navigator.serviceWorker.register('/Jobflow/sw.js');const sub=await reg.pushManager.getSubscription();if(sub){await api('/api/subscribe','POST',sub.toJSON());$('notify').textContent='✓ Background reminders on'}}catch(e){console.warn('Push refresh',e)}}await api('/api/data','PUT',{jobs,quotes,invoices});
   $('accountStatus').textContent='✓ Device ready. Enable background reminders to receive notifications when the app is closed.';
  }catch(e){$('accountStatus').textContent='Background reminders unavailable: '+e.message}
 }
 if(location.hostname!=='jakemathewpayne-arch.github.io'&&location.protocol!=='file:')initializeDevice();
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('/Jobflow/sw.js',{scope:'/Jobflow/'}).catch(e=>console.warn('Install support unavailable:',e))}
 renderJobs();renderFinance();reminders();if('Notification' in window&&Notification.permission==='granted'&&localStorage.getItem('jobflow-push-enabled')==='yes'){$('notify').textContent='✓ Push previously enabled';$('notify').title='Use Send test notification to verify this device.'}
 </script></body></html>
