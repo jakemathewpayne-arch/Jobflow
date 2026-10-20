@@ -49,7 +49,7 @@ let latestVoice='',activeRec=null;
 let authenticated=false,syncTimer;
 async function api(url,method='GET',data){const r=await fetch(url,{method,credentials:'same-origin',headers:data?{'Content-Type':'application/json'}:{},body:data?JSON.stringify(data):undefined});const result=await r.json();if(!r.ok)throw Error(result.error||'Request failed');return result}
 function queueSync(){if(!authenticated)return;clearTimeout(syncTimer);syncTimer=setTimeout(async()=>{try{await api('/api/data','PUT',{jobs,quotes,invoices})}catch(e){$('status').textContent='Cloud backup failed: '+e.message}},350)}
-const persist=()=>{localStorage.setItem(key,JSON.stringify(jobs));queueSync()};
+const persist=()=>{if(!authenticated)localStorage.setItem(key,JSON.stringify(jobs));queueSync()};
 let profile={owner:'',business:'',services:['Window cleaning']};
 try{const p=JSON.parse(localStorage.getItem('jobflow-profile-v1')||'null');if(p&&Array.isArray(p.services))profile={owner:p.owner||'',business:p.business||'',services:p.services.filter(Boolean).slice(0,3)}}catch{}
 function paintServices(){const sel=$('service'),current=sel.value;sel.replaceChildren();const list=profile.services.length?profile.services:['Window cleaning'];sel.append(new Option('Choose a service',''));for(const name of list)sel.append(new Option(name,name));sel.value=list.includes(current)?current:list.length===1?list[0]:'';for(const [i,id] of ['service1','service2','service3'].entries())$(id).value=profile.services[i]||'';$('ownerName').value=profile.owner;$('businessName').value=profile.business;$('profileHeading').textContent=(profile.business||'My business')+' workspace'}
@@ -58,7 +58,7 @@ $('saveProfile').onclick=()=>{const services=['service1','service2','service3'].
 $('editProfile').onclick=()=>hideProfile(false);
 paintServices();hideProfile(!!localStorage.getItem('jobflow-profile-v1'));$('openProfile').onclick=()=>{$('setupPanel').hidden=false;$('setupPanel').scrollIntoView({behavior:'smooth'})};
 
-const persistFinance=()=>{localStorage.setItem('jobflow-quotes',JSON.stringify(quotes));localStorage.setItem('jobflow-invoices',JSON.stringify(invoices));queueSync()};
+const persistFinance=()=>{if(!authenticated){localStorage.setItem('jobflow-quotes',JSON.stringify(quotes));localStorage.setItem('jobflow-invoices',JSON.stringify(invoices))}queueSync()};
 function clock(){const now=new Date(),settings=regions[region];$('clock').textContent=new Intl.DateTimeFormat(settings.locale,{timeZone:settings.timeZone,weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}).format(now)+' · '+settings.timeZone}clock();setInterval(clock,60000);
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b===btn));for(const tab of ['book','jobs','finance'])$('tab-'+tab).hidden=btn.dataset.tab!==tab});
 const switchTab=id=>document.querySelector('[data-tab="'+id+'"]').click();
@@ -115,9 +115,21 @@ function listen(mode){
  try{rec.start()}catch{activeRec=null;setVoice('error','Could not start','Check your microphone permissions.')}
 }
 $('speak').onclick=()=>listen('booking');$('voiceQuote').onclick=()=>{switchTab('finance');listen('quote')};
-function reminders(){const now=Date.now();for(const j of jobs){const delta=new Date(j.when).getTime()-now;j.alertsSent=Array.isArray(j.alertsSent)?j.alertsSent:[];for(const minutes of [30,15])if(delta>0&&delta<=minutes*60000&&!j.alertsSent.includes(minutes)){j.alertsSent.push(minutes);persist();const msg=j.service+' for '+j.customer+' at '+new Date(j.when).toLocaleTimeString();if('Notification' in window&&Notification.permission==='granted')new Notification('JobFlow: '+minutes+' minute reminder',{body:msg});else if(!document.hidden)alert(minutes+' minute reminder: '+msg)}}}
+function reminders(){if(authenticated)return;const now=Date.now();for(const j of jobs){const delta=new Date(j.when).getTime()-now;j.alertsSent=Array.isArray(j.alertsSent)?j.alertsSent:[];for(const minutes of [30,15])if(delta>0&&delta<=minutes*60000&&!j.alertsSent.includes(minutes)){j.alertsSent.push(minutes);persist();const msg=j.service+' for '+j.customer+' at '+new Date(j.when).toLocaleTimeString();if('Notification' in window&&Notification.permission==='granted')new Notification('JobFlow: '+minutes+' minute reminder',{body:msg});else if(!document.hidden)alert(minutes+' minute reminder: '+msg)}}}
 setInterval(reminders,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){clock();reminders()}});
-$('notify').onclick=async()=>{if(!('Notification'in window)||!window.isSecureContext){$('status').textContent='Browser notifications need Chrome and HTTPS.';return}const p=await Notification.requestPermission();$('status').textContent=p==='granted'?'✓ Browser notifications allowed. JobFlow must remain open to send these. For notifications after closing it, open My jobs and select Add phone reminders.':'Notifications are blocked or not supported. Check your browser permissions.'};
+function vapidBytes(base64){const pad='='.repeat((4-base64.length%4)%4),bin=atob((base64+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
+$('notify').onclick=async()=>{
+ try{
+  if(!authenticated){$('status').textContent='Sign in at the new JobFlow account site to enable background reminders.';return}
+  if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){throw Error('This browser does not support web push. Use calendar reminders instead.')}
+  const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Allow notifications in your browser settings.');
+  const {key}=await api('/api/push-key');if(!key)throw Error('Push notifications are not configured yet.');
+  const worker=await navigator.serviceWorker.register('/sw.js');const ready=await navigator.serviceWorker.ready;
+  let sub=await ready.pushManager.getSubscription();if(!sub)sub=await ready.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(key)});
+  await api('/api/subscribe','POST',sub.toJSON());
+  $('notify').textContent='✓ Push reminders enabled';$('status').textContent='✓ 30- and 15-minute push reminders enabled for this browser, even after closing the website (subject to device/browser delivery).';
+ }catch(e){$('status').textContent='Could not enable push: '+e.message}
+};
 function printable(kind,item){const win=window.open('','_blank');if(!win){alert('Allow popups to print.');return}const escape=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));win.document.write('<!doctype html><title>'+kind+'</title><main style="font:18px Arial;padding:40px"><h1>JobFlow '+kind+'</h1><p>Customer: '+escape(item.customer)+'</p><p>Service: '+escape(item.service)+'</p><h2>'+escape(money(item.amount))+'</h2><p>Status: '+escape(item.status)+'</p></main>');win.document.close();win.focus();setTimeout(()=>win.print(),300)}
 function invoice(q){if(invoices.some(x=>x.source===q.id))return alert('Invoice already exists.');invoices.push({id:String(Date.now()+Math.random()),source:q.id,customer:q.customer,service:q.service,amount:q.amount,status:'Unpaid'});persistFinance();renderFinance()}
 function renderFinance(){for(const id of ['quotes','invoices'])$(id).replaceChildren();if(!quotes.length)$('quotes').textContent='No quotes yet.';if(!invoices.length)$('invoices').textContent='No invoices yet.';
