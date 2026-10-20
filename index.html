@@ -57,7 +57,7 @@ header.app-header .header-actions .header-settings{background:#254359;color:#fff
 <section class="panel" id="accountPanel" hidden style="margin-bottom:18px"><h2>Settings</h2><div class="actions"><button id="openProfile" class="secondary">Business details</button></div><p class="hint">No login needed. Your business settings and reminders belong to this device.</p><div class="fields"><div><label for="accountOwner">Your name</label><input id="accountOwner"></div><div><label for="accountBusiness">Business name</label><input id="accountBusiness"></div></div><div class="region-settings" id="settingsRegion"></div><div class="actions"><button id="saveAccount">Save preferences</button><button class="secondary" id="accountNotify">Enable background reminders</button><button class="secondary" id="testPush">Send test notification</button><button class="secondary" id="installHelp">Install on home screen</button><p class="hint" id="mobilePushHelp" style="width:100%;margin:4px 0">On iPhone, install JobFlow to the Home Screen using Safari before enabling push notifications. Android Chrome supports push notifications directly.</p></div><p id="accountStatus" role="status"></p></section><div id="quickStart" hidden><p><strong>JobFlow on your phone.</strong> Keep jobs, quotes and invoices one tap away.</p><button id="showInstallGuide">Install on home screen</button></div><div id="installGuide" hidden><h2>Install JobFlow</h2><p id="installInstructions"></p><div class="actions"><button id="tryInstall">Install if available</button><button class="secondary" id="closeInstallGuide">Close</button></div></div><div class="hero"><h2>Good to see you.</h2><p>What would you like to do?</p></div><div class="stats"><div class="stat">Upcoming jobs<strong id="upcoming">0</strong></div><div class="stat">Unpaid jobs<strong id="unpaid">$0</strong></div><div class="stat">Paid jobs<strong id="paid">$0</strong></div></div>
 <div class="region-settings" hidden style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:15px"><label for="region" style="margin:0">Your country</label><select id="region" style="width:auto;min-width:185px;padding:9px 12px;border:1px solid #c8d6df;border-radius:7px;background:white;color:#234"><option value="NZ">New Zealand (NZD)</option><option value="AU">Australia (AUD)</option><option value="GB">United Kingdom (GBP)</option><option value="US">United States (USD)</option></select><small id="regionNotice">Your preferences are saved on this device.</small></div><section class="panel" id="setupPanel" hidden style="margin-bottom:18px"><span class="section-kicker">YOUR BUSINESS</span><h2 id="profileHeading">Personal workspace</h2><p class="hint">Set your name and up to three services. Your settings stay on this device.</p><div class="fields"><div><label for="ownerName">Your name</label><input id="ownerName" placeholder="Your name"></div><div><label for="businessName">Business name</label><input id="businessName" placeholder="My Window Cleaning"></div><div><label for="service1">Main service</label><input id="service1" placeholder="Window cleaning"></div><div><label for="service2">Second service (optional)</label><input id="service2" placeholder="Gutter cleaning"></div><div><label for="service3">Third service (optional)</label><input id="service3" placeholder="Pressure washing"></div></div><div class="actions"><button id="saveProfile">Save my business</button><button id="editProfile" class="secondary" hidden>Edit services</button></div><p id="profileStatus" role="status"></p></section><nav class="tabs" aria-label="Sections"><button data-tab="book" class="active">Book</button><button data-tab="jobs">Jobs</button><button data-tab="calendar">Calendar</button><button data-tab="finance">Quotes & invoices</button><button data-tab="customers">Clients</button></nav>
 <section id="tab-book" class="panel"><h2>New booking</h2><p class="hint">Tell JobFlow what to book.</p>
-<button id="speak">🎙 Start speaking</button>
+<button id="speak">🎙 Start speaking</button><button id="testVoice" class="secondary" type="button" style="margin-top:9px">🔊 Test voice reply</button>
 <div class="voicebar" id="voicebar" data-mode="ready" role="status" aria-live="polite"><div class="orb" aria-hidden="true">🎙</div><div><strong id="voiceState">Ready to listen</strong><small id="voiceHint">Tap Start speaking, then say your booking.</small></div></div>
 <div class="transcript" id="heard" hidden>Say “Book John tomorrow at 3:30 for $100”, “Cancel the job for John”, or “Move the job for John to Friday at 2 PM”.</div>
 <details id="bookingDetails"><summary>Enter or edit booking details</summary><div class="fields"><div><label for="customer">Customer</label><input id="customer" autocomplete="off" placeholder="e.g. Mike"></div><div><label for="service">Service</label><select id="service" style="width:100%;padding:12px;border:1px solid #bfcbd5;border-radius:6px;background:white;color:#223849"><option value="">Choose a service</option></select></div><div><label for="when">Date & time</label><input id="when" type="datetime-local"></div><div><label for="price">Price (optional)</label><input id="price" type="number" min="0" step=".01" placeholder="150"></div></div><label for="address">Job address (optional)</label><input id="address" autocomplete="street-address" placeholder="e.g. 15 Main Street, Wanaka"><label for="notes">Notes (optional)</label><textarea id="notes" rows="2"></textarea>
@@ -138,18 +138,36 @@ $('save').onclick=()=>{const customer=$('customer').value.trim(),service=$('serv
 function setVoice(mode,title,hint){$('voicebar').dataset.mode=mode;$('voiceState').textContent=title;$('voiceHint').textContent=hint;$('speak').textContent=mode==='listening'?'■ Stop listening':'🎙 Start speaking'}
 let voiceDraftActive=false,voiceDraftDate='',voiceConversation=false,voiceConfirm=false,voiceListeningRestart=false,quoteVoiceConfirm=false,voiceMode='booking';
 let speechTicket=0;
+let lastVoiceReply='';
 function sayBack(message,continueListening=false){
+ lastVoiceReply=message;
  const ticket=++speechTicket;
  const resume=()=>{if(ticket!==speechTicket||!continueListening||!voiceConversation)return;if(activeRec){setTimeout(resume,200);return}listen(voiceMode)};
- if(!('speechSynthesis' in window)){setVoice('ready','Voice reply unavailable',message);if(continueListening)setTimeout(resume,650);return}
- try{
-  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(message);
-  u.lang=region==='NZ'?'en-NZ':regions[region].locale;u.rate=0.97;
-  let finished=false;const end=()=>{if(finished)return;finished=true;if(continueListening)setTimeout(resume,450)};
-  u.onend=end;u.onerror=()=>{setVoice('ready','Voice reply failed','Read the question and tap Start speaking.');end()};
-  speechSynthesis.speak(u);
- }catch(e){setVoice('ready','Voice reply unavailable',message);if(continueListening)setTimeout(resume,650)}
+ $('voiceHint').textContent=message;
+ if(!('speechSynthesis' in window)){setVoice('error','Voice output unavailable',message);return}
+ const speakNow=()=>{
+  if(ticket!==speechTicket)return;
+  try{
+   const synth=window.speechSynthesis;
+   synth.cancel();
+   const u=new SpeechSynthesisUtterance(message);
+   u.lang=region==='NZ'?'en-NZ':regions[region].locale;
+   const voices=synth.getVoices();
+   const preferred=voices.find(v=>v.lang.toLowerCase()===u.lang.toLowerCase())||voices.find(v=>v.lang.toLowerCase().startsWith('en'));
+   if(preferred)u.voice=preferred;
+   u.rate=0.96;u.volume=1;
+   let finished=false;
+   const end=()=>{if(finished)return;finished=true;if(continueListening)setTimeout(resume,550)};
+   u.onstart=()=>{if(ticket===speechTicket)setVoice('speaking','JobFlow is speaking',message)};
+   u.onend=end;
+   u.onerror=()=>{if(ticket===speechTicket)setVoice('error','Could not play reply','Tap Test voice reply to check your device sound.');end()};
+   synth.speak(u);
+  }catch(e){setVoice('error','Voice reply failed',message)}
+ };
+ // Give microphone recognition time to fully close before playing audio.
+ if(activeRec)setTimeout(speakNow,450);else setTimeout(speakNow,120);
 }
+$('testVoice').onclick=()=>{voiceConversation=false;sayBack('Hello! I am JobFlow. I can help you book jobs, create quotes, and remind you about appointments.')};
 function localBusinessNow(){const zone=regions[region].timeZone,parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()).filter(x=>x.type!=='literal').map(x=>[x.type,Number(x.value)]));return new Date(parts.year,parts.month-1,parts.day,parts.hour,parts.minute)}
 function showVoiceResult(spoken){$('bookingDetails').open=true;latestVoice=spoken;const d=parseSpoken(spoken);if(d.dateOnly)voiceDraftDate=d.dateOnly;if(d.address)$('address').value=d.address;for(const id of ['customer','service','when','price'])if(d[id])$(id).value=d[id];if(profile.services.length===1&&!$('service').value)$('service').value=profile.services[0];$('voiceReview').hidden=false;const missing=['customer','service','when'].filter(id=>!$(id).value);const customer=$('customer').value,service=$('service').value,when=$('when').value;const summary=(customer||'Customer needed')+' · '+(service||'Service needed')+' · '+(when?new Date(when).toLocaleString(regions[region].locale):'Time needed')+($('address').value?' · '+$('address').value:'');$('voiceDetails').textContent=summary;voiceDraftActive=missing.length>0;voiceConfirm=missing.length===0;const question=missing.includes('customer')?'Who is the customer?':missing.includes('when')?'What time should I book it for?':missing.includes('service')?'Which service should I use?':'Okay, '+customer+' for '+service+' on '+new Date(when).toLocaleString(regions[region].locale,{weekday:'long',day:'numeric',month:'long',hour:'numeric',minute:'2-digit'})+'. Should I save this booking? Say yes or no.';$('status').textContent=missing.length?'Tell me: '+question:'Ready to save. '+(d.assumedDate?'I assumed the next occurrence of that time. ':'')+'Please check the details.';sayBack(question,voiceConversation)}
 function parseSpoken(s){
@@ -204,6 +222,7 @@ function listen(mode){
  const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!Speech){setVoice('error','Voice unavailable','Use Chrome with microphone access.');return}
  if(activeRec){activeRec.stop();return}
+ if('speechSynthesis' in window)speechSynthesis.cancel();++speechTicket;
  const rec=new Speech();activeRec=rec;voiceListeningRestart=false;rec.lang=region==='NZ'?'en-NZ':regions[region].locale;rec.interimResults=true;
  setVoice('listening','Listening now…','Speak clearly. Tap Stop listening when finished.');
  rec.onresult=e=>{const s=Array.from(e.results).map(v=>v[0].transcript).join(' ');$('heard').textContent='Heard: '+s;if(!e.results[e.results.length-1].isFinal)return;try{rec.stop()}catch{}
