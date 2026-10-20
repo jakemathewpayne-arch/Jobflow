@@ -140,18 +140,19 @@ $('speak').onclick=()=>listen('booking');$('voiceQuote').onclick=()=>{switchTab(
 function reminders(){if(authenticated)return;const now=Date.now();for(const j of jobs){const delta=new Date(j.when).getTime()-now;j.alertsSent=Array.isArray(j.alertsSent)?j.alertsSent:[];for(const minutes of [1440,120,30,15])if(delta>0&&delta<=minutes*60000&&!j.alertsSent.includes(minutes)){j.alertsSent.push(minutes);persist();const msg=j.service+' for '+j.customer+' at '+new Date(j.when).toLocaleTimeString();if('Notification' in window&&Notification.permission==='granted')new Notification('JobFlow: '+minutes+' minute reminder',{body:msg});else if(!document.hidden)alert(minutes+' minute reminder: '+msg)}}}
 setInterval(reminders,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){clock();reminders()}});
 function vapidBytes(base64){const pad='='.repeat((4-base64.length%4)%4),bin=atob((base64+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
-$('notify').onclick=async()=>{
+async function enablePushReminders(){
  try{
-  if(!authenticated){$('status').textContent='Preparing device reminders. Try again in a moment.';return}
+  if(!authenticated){throw Error('Device is not connected yet. Reload JobFlow and try again.')}
   if(!('Notification' in window)||!('serviceWorker' in navigator)||!('PushManager' in window)){throw Error('This browser does not support web push. Use calendar reminders instead.')}
   const ios=/iPad|iPhone|iPod/.test(navigator.userAgent),installed=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;if(ios&&!installed)throw Error('On iPhone: open JobFlow in Safari, tap Share → Add to Home Screen, launch the installed app, then enable reminders.');const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('Allow notifications in your browser settings.');
   const {key}=await api('/api/push-key');if(!key)throw Error('Push notifications are not configured yet.');
   await navigator.serviceWorker.register('/sw.js');const ready=await navigator.serviceWorker.ready;
   let sub=await ready.pushManager.getSubscription();if(!sub)sub=await ready.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidBytes(key)});
   await api('/api/subscribe','POST',sub.toJSON());localStorage.setItem('jobflow-push-enabled','yes');
-  $('notify').textContent='✓ Push reminders enabled';$('status').textContent='✓ 1-day, 2-hour, 30-minute and 15-minute push reminders enabled for this browser, even after closing the website (subject to device/browser delivery).';
- }catch(e){$('status').textContent='Could not enable push: '+e.message}
-};
+  $('notify').textContent='✓ Push reminders enabled';$('accountNotify').textContent='✓ Background reminders on';$('status').textContent='✓ Push reminders enabled for this device.';$('accountStatus').textContent='✓ Notifications enabled. Press Send test notification to check delivery.';
+ }catch(e){$('status').textContent='Could not enable push: '+e.message;$('accountStatus').textContent='Could not enable notifications: '+e.message}finally{$('accountNotify').disabled=false;$('notify').disabled=false}
+}
+$('notify').onclick=()=>enablePushReminders();
 function printable(kind,item){const win=window.open('','_blank');if(!win){alert('Allow popups to print.');return}const escape=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));win.document.write('<!doctype html><title>'+kind+'</title><main style="font:18px Arial;padding:40px"><h1>JobFlow '+kind+'</h1><p>Customer: '+escape(item.customer)+'</p><p>Service: '+escape(item.service)+'</p><h2>'+escape(money(item.amount))+'</h2><p>Status: '+escape(item.status)+'</p></main>');win.document.close();win.focus();setTimeout(()=>win.print(),300)}
 function invoice(q){if(invoices.some(x=>x.source===q.id))return alert('Invoice already exists.');invoices.push({id:String(Date.now()+Math.random()),source:q.id,customer:q.customer,service:q.service,amount:q.amount,status:'Unpaid'});persistFinance();renderFinance()}
 function renderFinance(){for(const id of ['quotes','invoices'])$(id).replaceChildren();if(!quotes.length)$('quotes').textContent='No quotes yet.';if(!invoices.length)$('invoices').textContent='No invoices yet.';
@@ -164,7 +165,7 @@ $('makeQuote').onclick=()=>{const customer=$('quoteName').value.trim(),service=$
 $('accountButton').onclick=()=>{$('accountPanel').hidden=!$('accountPanel').hidden;$('accountOwner').value=profile.owner||'';$('accountBusiness').value=profile.business||''};
 $('saveAccount').onclick=()=>{profile.owner=$('accountOwner').value.trim();profile.business=$('accountBusiness').value.trim();localStorage.setItem('jobflow-profile-v1',JSON.stringify(profile));paintServices();$('accountStatus').textContent='✓ Preferences saved on this device.'};
 let installPrompt=null;window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;$('installApp').hidden=false});async function installJobFlow(){if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('installApp').hidden=true}else{$('accountStatus').textContent='Android Chrome: menu ⋮ → Add to Home screen / Install app. iPhone Safari: Share → Add to Home Screen. Desktop Chrome: click Install in the address bar.'}}$('installApp').onclick=installJobFlow;$('installHelp').onclick=installJobFlow;window.addEventListener('appinstalled',()=>{$('installApp').hidden=true;$('accountStatus').textContent='✓ JobFlow installed.'});
-$('accountNotify').onclick=()=>$('notify').click();$('testPush').onclick=async()=>{try{if(!authenticated)throw Error('Device still connecting');await api('/api/test-push','POST',{});$('accountStatus').textContent='Push service accepted the test. Check your device notification shade to confirm arrival.'}catch(e){$('accountStatus').textContent='Test failed: '+e.message}};
+$('accountNotify').onclick=()=>{$('accountStatus').textContent='Connecting notifications…';$('accountNotify').disabled=true;enablePushReminders()};$('testPush').onclick=async()=>{try{if(!authenticated)throw Error('Device still connecting');await api('/api/test-push','POST',{});$('accountStatus').textContent='Push service accepted the test. Check your device notification shade to confirm arrival.'}catch(e){$('accountStatus').textContent='Test failed: '+e.message}};
 async function initializeDevice(){
  try{
   const guest=await api('/api/guest','POST',{});
