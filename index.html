@@ -180,13 +180,13 @@ function parseSpoken(s){
  const bad=/^(for|with|a|an|the|car|detailing|cleaning|tomorrow|today|on|at|service|job|next|my|me|thing)$/i;
  if(customer&&!bad.test(customer[1].split(' ')[0])){
   let name=customer[1].replace(/\s+(for|with|on|at)$/i,'').trim();
-  // Browser speech recognition often hears the first name Mick as "mic".
+  // Browser speech recognition often hears the first name Mike as "mic".
   // Only correct this in the customer-name field, never in a service or note.
-  if(/^mic$/i.test(name))name='Mick';
+  if(/^mic$/i.test(name))name='Mike';
   out.customer=name;
  }
- if(!out.customer&&voiceDraftActive&&/^\s*[a-z][a-z'-]{1,30}\s*$/i.test(s))out.customer=/^mic$/i.test(s.trim())?'Mick':s.trim();
- if(!out.customer){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))out.customer=/^mic$/i.test(alternative[1])?'Mick':alternative[1];}
+ if(!out.customer&&voiceDraftActive&&/^\s*[a-z][a-z'-]{1,30}\s*$/i.test(s))out.customer=/^mic$/i.test(s.trim())?'Mike':s.trim();
+ if(!out.customer){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))out.customer=/^mic$/i.test(alternative[1])?'Mike':alternative[1];}
  const known=[...learned.names].sort((a,b)=>b.length-a.length).find(n=>lower.includes(n.toLowerCase()));if(known)out.customer=known;
  const saved=learned.corrections.find(x=>x.spoken===lower.trim());if(saved){out.customer=saved.customer;out.service=saved.service}
  const price=s.match(/\$\s*(\d+(?:\.\d+)?)/)||s.match(/\b(\d+(?:\.\d+)?)\s*dollars\b/i)||s.match(/\b(?:priced at|costs?|charge|amount of)\s+(\d+(?:\.\d+)?)\b/i);if(price)out.price=price[1];
