@@ -263,26 +263,30 @@ function listen(mode){
 }
 $('speak').onclick=()=>{if(activeRec){voiceConversation=false;activeRec.stop();setVoice('ready','Stopped','Tap Start speaking to begin again.');return}voiceConversation=true;voiceConfirm=false;listen('booking')};$('voiceQuote').onclick=()=>{switchTab('finance');voiceConversation=true;quoteVoiceConfirm=false;listen('quote')};
 function reminders(){
- const now=Date.now();let changed=false,missed=[];
+ const now=Date.now();let changed=false,alerts=[];
  for(const j of jobs){
   const start=new Date(j.when).getTime();
   if(!Number.isFinite(start)||start<=now)continue;
   j.alertsSent=Array.isArray(j.alertsSent)?j.alertsSent:[];
   const remaining=(start-now)/60000;
-  // When opened late, show the nearest unsent reminder rather than silently missing it.
   const due=remaining<=15?15:remaining<=30?30:null;
   if(due===null||j.alertsSent.includes(due))continue;
-  // If a 30-minute alert was missed, don't send it alongside the 15-minute alert.
+  // A background tab cannot reliably deliver a browser notification.
+  // Leave it pending until the user returns instead of marking it sent.
+  if(document.hidden)continue;
   if(due===15&&!j.alertsSent.includes(30))j.alertsSent.push(30);
   j.alertsSent.push(due);changed=true;
   const msg=j.service+' for '+j.customer+' at '+new Date(j.when).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-  missed.push(due+'-minute reminder: '+msg);
-  if(!document.hidden&&'Notification' in window&&Notification.permission==='granted'){
-   try{new Notification('JobFlow: '+due+' minute reminder',{body:msg,tag:'jobflow-'+j.id+'-'+due})}catch(e){console.warn('Browser notification unavailable',e)}
+  alerts.push(due+'-minute reminder: '+msg);
+  if('Notification' in window&&Notification.permission==='granted'){
+   try{new Notification('JobFlow: '+due+' minute reminder',{body:msg,tag:'jobflow-'+j.id+'-'+due})}catch(e){console.warn('Notification unavailable',e)}
   }
  }
  if(changed)persist();
- if(missed.length){$('reminderAlert').hidden=false;$('reminderAlert').textContent='⏰ '+missed.join(' | ')}
+ if(alerts.length){
+  const banner=$('reminderAlert');banner.hidden=false;banner.textContent='⏰ '+alerts.join(' | ');
+  $('status').textContent=alerts.join(' | ');
+ }
 }
 setInterval(reminders,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){clock();reminders()}});
 function vapidBytes(base64){const pad='='.repeat((4-base64.length%4)%4),bin=atob((base64+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
