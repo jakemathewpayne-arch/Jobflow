@@ -54,7 +54,7 @@ header.app-header .header-actions .header-settings{background:#254359;color:#fff
 @media(max-width:370px){header.app-header .header-install{display:none}}
 </style></head><body><main>
 <header class="app-header"><div class="header-inner"><div class="logo"><span class="mark">JF</span><div><h1>JobFlow</h1><small>Business made simple</small></div></div><div class="header-actions"><div class="clock" id="clock" hidden></div><button id="installApp" class="header-install">Install app</button><button id="accountButton" class="header-settings" aria-label="Settings">⚙ Settings</button></div></div></header>
-<section class="panel" id="accountPanel" hidden style="margin-bottom:18px"><h2>Settings</h2><div class="actions"><button id="openProfile" class="secondary">Business details</button></div><p class="hint">No login needed. Your business settings and reminders belong to this device.</p><div class="fields"><div><label for="accountOwner">Your name</label><input id="accountOwner"></div><div><label for="accountBusiness">Business name</label><input id="accountBusiness"></div></div><div class="region-settings" id="settingsRegion"></div><div class="actions"><button id="saveAccount">Save preferences</button><button class="secondary" id="accountNotify">Enable background reminders</button><button class="secondary" id="testPush">Send test notification</button><button class="secondary" id="installHelp">Install on home screen</button><p class="hint" id="mobilePushHelp" style="width:100%;margin:4px 0">On iPhone, install JobFlow to the Home Screen using Safari before enabling push notifications. Android Chrome supports push notifications directly.</p></div><p id="accountStatus" role="status"></p></section><div id="quickStart" hidden><p><strong>JobFlow on your phone.</strong> Keep jobs, quotes and invoices one tap away.</p><button id="showInstallGuide">Install on home screen</button></div><div id="installGuide" hidden><h2>Install JobFlow</h2><p id="installInstructions"></p><div class="actions"><button id="tryInstall">Install if available</button><button class="secondary" id="closeInstallGuide">Close</button></div></div><div class="hero"><h2>Good to see you.</h2><p>What would you like to do?</p></div><div class="stats"><div class="stat">Upcoming jobs<strong id="upcoming">0</strong></div><div class="stat">Unpaid jobs<strong id="unpaid">$0</strong></div><div class="stat">Paid jobs<strong id="paid">$0</strong></div></div>
+<section class="panel" id="accountPanel" hidden style="margin-bottom:18px"><h2>Settings</h2><div class="actions"><button id="openProfile" class="secondary">Business details</button></div><p class="hint">No login needed. Your business settings and reminders belong to this device.</p><div class="fields"><div><label for="accountOwner">Your name</label><input id="accountOwner"></div><div><label for="accountBusiness">Business name</label><input id="accountBusiness"></div></div><div class="region-settings" id="settingsRegion"></div><div class="actions"><button id="saveAccount">Save preferences</button><button class="secondary" id="accountNotify">Enable background reminders</button><button class="secondary" id="testPush">Send test notification</button><button class="secondary" id="installHelp">Install on home screen</button><p class="hint" id="mobilePushHelp" style="width:100%;margin:4px 0">On iPhone, install JobFlow to the Home Screen using Safari before enabling push notifications. Android Chrome supports push notifications directly.</p></div><p id="accountStatus" role="status"></p></section><div id="quickStart" hidden><p><strong>JobFlow on your phone.</strong> Keep jobs, quotes and invoices one tap away.</p><button id="showInstallGuide">Install on home screen</button></div><div id="installGuide" hidden><h2>Install JobFlow</h2><p id="installInstructions"></p><div class="actions"><button id="tryInstall">Install if available</button><button class="secondary" id="closeInstallGuide">Close</button></div></div><div id="reminderAlert" role="alert" hidden style="background:#fff1d6;border:1px solid #e2bc6b;color:#674600;padding:14px;border-radius:10px;margin-bottom:12px;font-weight:650"></div><div class="hero"><h2>Good to see you.</h2><p>What would you like to do?</p></div><div class="stats"><div class="stat">Upcoming jobs<strong id="upcoming">0</strong></div><div class="stat">Unpaid jobs<strong id="unpaid">$0</strong></div><div class="stat">Paid jobs<strong id="paid">$0</strong></div></div>
 <div class="region-settings" hidden style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:15px"><label for="region" style="margin:0">Your country</label><select id="region" style="width:auto;min-width:185px;padding:9px 12px;border:1px solid #c8d6df;border-radius:7px;background:white;color:#234"><option value="NZ">New Zealand (NZD)</option><option value="AU">Australia (AUD)</option><option value="GB">United Kingdom (GBP)</option><option value="US">United States (USD)</option></select><small id="regionNotice">Your preferences are saved on this device.</small></div><section class="panel" id="setupPanel" hidden style="margin-bottom:18px"><span class="section-kicker">YOUR BUSINESS</span><h2 id="profileHeading">Personal workspace</h2><p class="hint">Set your name and up to three services. Your settings stay on this device.</p><div class="fields"><div><label for="ownerName">Your name</label><input id="ownerName" placeholder="Your name"></div><div><label for="businessName">Business name</label><input id="businessName" placeholder="My Window Cleaning"></div><div><label for="service1">Main service</label><input id="service1" placeholder="Window cleaning"></div><div><label for="service2">Second service (optional)</label><input id="service2" placeholder="Gutter cleaning"></div><div><label for="service3">Third service (optional)</label><input id="service3" placeholder="Pressure washing"></div></div><div class="actions"><button id="saveProfile">Save my business</button><button id="editProfile" class="secondary" hidden>Edit services</button></div><p id="profileStatus" role="status"></p></section><nav class="tabs" aria-label="Sections"><button data-tab="book" class="active">Book</button><button data-tab="jobs">Jobs</button><button data-tab="calendar">Calendar</button><button data-tab="finance">Quotes & invoices</button><button data-tab="customers">Clients</button></nav>
 <section id="tab-book" class="panel"><h2>New booking</h2><p class="hint">Tell JobFlow what to book.</p>
 <button id="speak">🎙 Start speaking</button><button id="testVoice" class="secondary" type="button" style="margin-top:9px">🔊 Test voice reply</button>
@@ -262,23 +262,26 @@ function listen(mode){
 }
 $('speak').onclick=()=>{if(activeRec){voiceConversation=false;activeRec.stop();setVoice('ready','Stopped','Tap Start speaking to begin again.');return}voiceConversation=true;voiceConfirm=false;listen('booking')};$('voiceQuote').onclick=()=>{switchTab('finance');voiceConversation=true;quoteVoiceConfirm=false;listen('quote')};
 function reminders(){
- const now=Date.now();let changed=false;
+ const now=Date.now();let changed=false,missed=[];
  for(const j of jobs){
   const start=new Date(j.when).getTime();
   if(!Number.isFinite(start)||start<=now)continue;
   j.alertsSent=Array.isArray(j.alertsSent)?j.alertsSent:[];
-  const minutesLeft=(start-now)/60000;
-  // Never fire both reminders together. Only alert near each actual threshold.
-  const threshold=minutesLeft<=15&&minutesLeft>14?15:minutesLeft<=30&&minutesLeft>29?30:null;
-  if(threshold===null||j.alertsSent.includes(threshold))continue;
-  j.alertsSent.push(threshold);changed=true;
+  const remaining=(start-now)/60000;
+  // When opened late, show the nearest unsent reminder rather than silently missing it.
+  const due=remaining<=15?15:remaining<=30?30:null;
+  if(due===null||j.alertsSent.includes(due))continue;
+  // If a 30-minute alert was missed, don't send it alongside the 15-minute alert.
+  if(due===15&&!j.alertsSent.includes(30))j.alertsSent.push(30);
+  j.alertsSent.push(due);changed=true;
   const msg=j.service+' for '+j.customer+' at '+new Date(j.when).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
-  if('Notification' in window&&Notification.permission==='granted'){
-    try{new Notification('JobFlow: '+threshold+' minutes to go',{body:msg,tag:'jobflow-'+j.id+'-'+threshold})}
-    catch(e){$('status').textContent=threshold+' minute reminder: '+msg}
-  }else if(!document.hidden){$('status').textContent=threshold+' minute reminder: '+msg}
+  missed.push(due+'-minute reminder: '+msg);
+  if(!document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+   try{new Notification('JobFlow: '+due+' minute reminder',{body:msg,tag:'jobflow-'+j.id+'-'+due})}catch(e){console.warn('Browser notification unavailable',e)}
+  }
  }
  if(changed)persist();
+ if(missed.length){$('reminderAlert').hidden=false;$('reminderAlert').textContent='⏰ '+missed.join(' | ')}
 }
 setInterval(reminders,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){clock();reminders()}});
 function vapidBytes(base64){const pad='='.repeat((4-base64.length%4)%4),bin=atob((base64+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(bin,c=>c.charCodeAt(0))}
@@ -319,5 +322,5 @@ async function initializeDevice(){
 }
 if(location.hostname!=='jakemathewpayne-arch.github.io'&&location.protocol!=='file:')initializeDevice();
 if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('/Jobflow/sw.js',{scope:'/Jobflow/'}).catch(e=>console.warn('Install support unavailable:',e))}
-renderJobs();renderFinance();reminders();if('Notification' in window&&Notification.permission==='granted'&&localStorage.getItem('jobflow-push-enabled')==='yes'){$('notify').textContent='✓ Push previously enabled';$('notify').title='Use Send test notification to verify this device.'}
+renderJobs();renderFinance();reminders();if('Notification' in window&&Notification.permission==='granted'&&localStorage.getItem('jobflow-push-enabled')==='yes'&&location.hostname!=='jakemathewpayne-arch.github.io'){$('notify').textContent='✓ Push previously enabled';$('notify').title='Use Send test notification to verify this device.'}
 </script></body></html>
