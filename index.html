@@ -178,16 +178,28 @@ function parseSpoken(s){
  if(addressMatch)out.address=addressMatch[1].trim().replace(/[,. ]+$/,'');
  const customer=s.match(/\b(?:book(?:\s+(?:a\s+)?job)?(?:\s+for)?|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:quote|invoice)\s+for|(?:quote|invoice)\s+for|(?:job|appointment|booking|thing)\s+for|(?:make|create)\s+(?:me\s+)?(?:a\s+)?(?:booking|job|thing)\s+for|with|customer is|client is|customer(?:'s)? name is|client(?:'s)? name is|name is)\s+([a-z][a-z'-]*(?:\s+[a-z][a-z'-]*)?)/i);
  const bad=/^(for|with|a|an|the|car|detailing|cleaning|tomorrow|today|on|at|service|job|next|my|me|thing)$/i;
- if(customer&&!bad.test(customer[1].split(' ')[0])){
-  let name=customer[1].replace(/\s+(for|with|on|at)$/i,'').trim();
-  // Browser speech recognition often hears the first name Mike as "mic".
-  // Only correct this in the customer-name field, never in a service or note.
-  if(/^mic$/i.test(name))name='Mike';
-  out.customer=name;
- }
- if(!out.customer&&voiceDraftActive&&/^\s*[a-z][a-z'-]{1,30}\s*$/i.test(s))out.customer=/^mic$/i.test(s.trim())?'Mike':s.trim();
- if(!out.customer){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))out.customer=/^mic$/i.test(alternative[1])?'Mike':alternative[1];}
- const known=[...learned.names].sort((a,b)=>b.length-a.length).find(n=>lower.includes(n.toLowerCase()));if(known)out.customer=known;
+ let rawName='';
+ if(customer&&!bad.test(customer[1].split(' ')[0]))rawName=customer[1].replace(/\s+(for|with|on|at)$/i,'').trim();
+ if(!rawName&&voiceDraftActive&&/^\s*[a-z][a-z'-]{1,30}\s*$/i.test(s))rawName=s.trim();
+ if(!rawName){const alternative=s.match(/\b(?:for|with)\s+([a-z][a-z'-]*)\b/i);if(alternative&&!bad.test(alternative[1]))rawName=alternative[1]}
+ // Prefer names the owner has previously saved, but do not guess an unfamiliar name.
+ const knownNames=[...new Set([...learned.names,...jobs.map(j=>j.customer),...quotes.map(q=>q.customer),...invoices.map(i=>i.customer)].filter(Boolean))];
+ const soundKey=t=>t.toLowerCase().replace(/[^a-z]/g,'').replace(/^ph/,'f').replace(/^ck/,'k').replace(/([a-z])\1+/g,'$1').replace(/[aeiouy]/g,'');
+ const normalize=t=>t.toLowerCase().trim().replace(/[^a-z '-]/g,'');
+ const nameFromSpeech=t=>{
+  if(!t)return '';
+  const normalized=normalize(t);
+  const exact=knownNames.find(n=>normalize(n)===normalized);
+  if(exact)return exact;
+  // Common voice transcription of "Mike" as the microphone abbreviation.
+  if(/^mic$/i.test(t))return knownNames.find(n=>/^mike$/i.test(n))||'Mike';
+  // Apply fuzzy name matching only where one saved name is clearly closest.
+  const first=t.split(/\s+/)[0];
+  const phonetic=knownNames.filter(n=>soundKey(n.split(/\s+/)[0])===soundKey(first)&&first.length>=3);
+  if(phonetic.length===1)return phonetic[0];
+  return t.replace(/\b[a-z]/g,c=>c.toUpperCase());
+ };
+ if(rawName)out.customer=nameFromSpeech(rawName);
  const saved=learned.corrections.find(x=>x.spoken===lower.trim());if(saved){out.customer=saved.customer;out.service=saved.service}
  const price=s.match(/\$\s*(\d+(?:\.\d+)?)/)||s.match(/\b(\d+(?:\.\d+)?)\s*dollars\b/i)||s.match(/\b(?:priced at|costs?|charge|amount of)\s+(\d+(?:\.\d+)?)\b/i);if(price)out.price=price[1];
  const d=localBusinessNow(),months=['january','february','march','april','may','june','july','august','september','october','november','december'];let hasDate=false;
